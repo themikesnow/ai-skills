@@ -12,12 +12,16 @@ ai-skills/
 ├── install.sh                 # idempotent linker — run to install/update
 ├── .gitignore
 ├── skills/
-│   └── change-workflow/       # one folder per skill
-│       ├── SKILL.md           # canonical instructions
-│       └── templates/         # files the skill writes from
-│           ├── design-review.md
-│           ├── implementation-plan.md
-│           └── ledger.md
+│   ├── change-workflow/       # one folder per skill
+│   │   ├── SKILL.md           # canonical instructions
+│   │   └── templates/         # files the skill writes from
+│   │       ├── design-review.md
+│   │       ├── implementation-plan.md
+│   │       └── ledger.md
+│   └── create-mr/             # open a PR/MR on GitHub or Bitbucket
+│       ├── SKILL.md
+│       └── scripts/
+│           └── create-mr.sh   # push + create PR via the host's API
 └── codex/
     └── AGENTS.md              # Codex-only global instructions (no Claude equivalent)
 ```
@@ -45,6 +49,21 @@ Verify what actually loaded:
 codex --print-instructions      # dumps the merged AGENTS.md Codex loaded
 # for Claude, check the skill appears in its skill listing
 ```
+
+## Skill setup
+
+### create-mr
+
+Pushes the current branch and opens a pull request with a title and description
+written from the diff. It picks the host from `origin` and reads tokens from the
+environment (falling back to `~/.zshrc`):
+
+| Host | Variable | Token |
+|---|---|---|
+| GitHub | `GITHUB_TOKEN` | Fine-grained token with Contents + Pull requests read/write, or a classic token with `repo` |
+| Bitbucket | `BITBUCKET_TOKEN` | Repository/workspace access token (`ATCTT…`) with Repositories + Pull requests write; or an Atlassian API token (`ATATT…`) plus `BITBUCKET_EMAIL` |
+
+Check auth without pushing anything: `skills/create-mr/scripts/create-mr.sh --check`.
 
 ## Adding a new skill
 
