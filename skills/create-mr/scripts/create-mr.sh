@@ -107,9 +107,10 @@ PY
 
     TOKEN="$token" GIT_USER="$git_user" git -c credential.helper= \
       -c 'credential.helper=!f() { echo "username=$GIT_USER"; echo "password=$TOKEN"; }; f' \
-      push -u "https://$git_user@bitbucket.org/$owner/$repo.git" "$branch" >&2
-    git branch --set-upstream-to="origin/$branch" "$branch" >/dev/null 2>&1 \
-      || { git fetch origin "$branch" >/dev/null 2>&1 && git branch --set-upstream-to="origin/$branch" "$branch" >/dev/null 2>&1; } || true
+      push "https://$git_user@bitbucket.org/$owner/$repo.git" "$branch" >&2
+    # Pushed to an explicit URL (so the token's git user is used); track origin, not that URL.
+    git config "branch.$branch.remote" origin
+    git config "branch.$branch.merge" "refs/heads/$branch"
 
     q="$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "source.branch.name=\"$branch\" AND state=\"OPEN\"")"
     existing="$(bb "$api/pullrequests?q=$q" | python3 -c 'import json,sys; v=json.load(sys.stdin).get("values",[]); print(v[0]["links"]["html"]["href"] if v else "")')"
