@@ -9,6 +9,10 @@
 #   Bitbucket: BITBUCKET_TOKEN, either a repository/workspace access token (ATCTT..., Bearer) or an
 #              Atlassian API token (ATATT..., needs BITBUCKET_EMAIL, falling back to git user.email)
 #
+# Base branch: --base if given; else `development`, `develop` or `dev` if one exists on the remote;
+# else the repo's default branch (with a note on stderr). Never main/master by default when a
+# development branch exists.
+#
 # Prints the PR URL on the last line. If an open PR already exists for the branch, prints its URL.
 set -euo pipefail
 
@@ -26,6 +30,10 @@ done
 $check || [[ -n "$title" && -f "$body_file" ]] || { echo "need --title and an existing --body-file" >&2; exit 2; }
 
 die() { echo "error: $*" >&2; exit 1; }
+
+# Without --base, PRs target the first of these that exists; the default branch (main/master)
+# only when none does. Pass --base main explicitly to target main.
+DEV_BRANCHES=(development develop dev)
 
 # Read a variable from the environment, or from the user's interactive zsh profile.
 from_env() {
@@ -52,7 +60,13 @@ case "$host" in
     api="https://api.github.com/repos/$owner/$repo"
     auth=(-H "Authorization: Bearer $token" -H "Accept: application/vnd.github+json")
     if [[ -z "$base" ]]; then
+      for b in "${DEV_BRANCHES[@]}"; do
+        if [[ "$(curl -sS -o /dev/null -w '%{http_code}' "${auth[@]}" "$api/branches/$b")" == 200 ]]; then base="$b"; break; fi
+      done
+    fi
+    if [[ -z "$base" ]]; then
       base="$(curl -fsS "${auth[@]}" "$api" | python3 -c 'import json,sys; print(json.load(sys.stdin)["default_branch"])')"
+      echo "note: no development branch (${DEV_BRANCHES[*]}) on $owner/$repo; targeting the default branch '$base'" >&2
     fi
     if $check; then echo "ok: github $owner/$repo, branch $branch -> $base"; exit 0; fi
     [[ "$branch" != "$base" ]] || die "on the base branch '$base'; create a feature branch first"
@@ -100,7 +114,13 @@ PY
     repo_code="$(bb -o /dev/null -w '%{http_code}' "$api")"
     [[ "$repo_code" == 200 ]] || die "Bitbucket API returned $repo_code for $owner/$repo ($hint)"
     if [[ -z "$base" ]]; then
+      for b in "${DEV_BRANCHES[@]}"; do
+        if [[ "$(bb -o /dev/null -w '%{http_code}' "$api/refs/branches/$b")" == 200 ]]; then base="$b"; break; fi
+      done
+    fi
+    if [[ -z "$base" ]]; then
       base="$(bb "$api" | python3 -c 'import json,sys; print(json.load(sys.stdin)["mainbranch"]["name"])')"
+      echo "note: no development branch (${DEV_BRANCHES[*]}) on $owner/$repo; targeting the default branch '$base'" >&2
     fi
     if $check; then echo "ok: bitbucket $owner/$repo, branch $branch -> $base"; exit 0; fi
     [[ "$branch" != "$base" ]] || die "on the base branch '$base'; create a feature branch first"
