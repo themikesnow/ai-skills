@@ -141,7 +141,9 @@ import json, sys
 title, body_file, head, base, draft = sys.argv[1:]
 print(json.dumps({"title": title, "description": open(body_file).read(),
                   "source": {"branch": {"name": head}}, "destination": {"branch": {"name": base}},
-                  "close_source_branch": True, "draft": draft == "true"}))
+                  # Delete the source branch on merge, except long-lived ones (development -> master).
+                  "close_source_branch": head not in ("development", "develop", "dev", "main", "master", "staging", "production", "prod"),
+                  "draft": draft == "true"}))
 PY
 )"
     resp="$(bb -w '\n%{http_code}' -X POST -H 'Content-Type: application/json' "$api/pullrequests" -d "$payload")"
